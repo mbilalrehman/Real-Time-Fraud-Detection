@@ -1,1 +1,13 @@
+# Virtual Environments
+venv/
+venv_frontend/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Trained Models (Yeh GitHub par nahi daalnay!)
+*.pkl
+
+# Data (Yeh 100MB+ hai, GitHub par nahi daalna!)
 *.csv
