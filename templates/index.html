@@ -1,0 +1,156 @@
+<!-- ===== Fraud Prediction Frontend ===== -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Fraud Detector</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .form-input {
+            border: 1px solid #D1D5DB; /* gray-300 */
+            border-radius: 0.5rem; /* rounded-lg */
+            padding: 0.75rem 1rem;
+            width: 100%;
+            transition: all 0.3s;
+        }
+        .form-input:focus {
+            border-color: #4F46E5; /* indigo-600 */
+            box-shadow: 0 0 0 2px #C7D2FE; /* indigo-200 */
+            outline: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+
+    <div class="max-w-4xl w-full bg-white rounded-2xl shadow-2xl p-8 m-4">
+        
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">Real-time Fraud Detector</h1>
+            <p class="text-gray-600 mt-2">Enter transaction details to check for fraud using our trained XGBoost model.</p>
+        </div>
+
+        <!-- Prediction Form -->
+        <form id="prediction-form" class="space-y-6">
+            
+            <!-- Time & Amount -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="time" class="block text-sm font-medium text-gray-700">Time (in seconds)</label>
+                    <input type="number" step="any" name="time" id="time" class="form-input mt-1" placeholder="e.g., 86400" required>
+                </div>
+                <div>
+                    <label for="amount" class="block text-sm font-medium text-gray-700">Amount (e.g., 129.99)</label>
+                    <input type="number" step="any" name="amount" id="amount" class="form-input mt-1" placeholder="e.g., 129.99" required>
+                </div>
+            </div>
+
+            <!-- V1-V28 Features -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700">V1-V28 Features</label>
+                <p class="text-xs text-gray-500 mb-2">(In a real app, these come from the payment processor. For demo, enter 0s or sample data.)</p>
+                <div class="grid grid-cols-4 md:grid-cols-7 gap-4">
+                    <!-- JavaScript se V1-V28 inputs generate karein gay -->
+                </div>
+            </div>
+            
+            <!-- Submit Button -->
+            <div class="text-center">
+                <button type="submit" class="w-full md:w-1/2 bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg hover:bg-indigo-700 transition-all duration-300">
+                    <span id="btn-text">Check Transaction</span>
+                    <span id="btn-loader" class="hidden">Checking...</span>
+                </button>
+            </div>
+        </form>
+        
+        <!-- Result Section -->
+        <div id="result-container" class="hidden mt-8 text-center p-6 rounded-lg">
+            <h3 id="result-text" class="text-2xl font-bold"></h3>
+            <p id="probability-text" class="text-lg text-gray-700"></p>
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('prediction-form');
+            const resultContainer = document.getElementById('result-container');
+            const resultText = document.getElementById('result-text');
+            const probabilityText = document.getElementById('probability-text');
+            const btnText = document.getElementById('btn-text');
+            const btnLoader = document.getElementById('btn-loader');
+            
+            // V1-V28 input fields ko dynamically generate karein
+            const vFeaturesGrid = form.querySelector('.grid.grid-cols-4');
+            for (let i = 1; i <= 28; i++) {
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.step = 'any';
+                input.name = `v${i}`;
+                input.id = `v${i}`;
+                input.placeholder = `V${i}`;
+                input.className = 'form-input text-sm';
+                input.required = true;
+                // Demo k liye, 0 se fill kar dein
+                input.value = '0'; 
+                vFeaturesGrid.appendChild(input);
+            }
+
+            // Form submission ko handle karein
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault(); // Page ko reload honay se rokein
+                
+                // Show loader
+                btnText.classList.add('hidden');
+                btnLoader.classList.remove('hidden');
+                resultContainer.classList.add('hidden');
+                
+                // Form data ko collect karein
+                const formData = new FormData(form);
+                
+                try {
+                    // Backend (Flask) ko request bhejein
+                    const response = await fetch('/predict', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        // Agar server se error aaye (e.g., 400 ya 500)
+                        throw new Error(data.error || 'Unknown server error');
+                    }
+                    
+                    // Result ko display karein
+                    resultText.textContent = data.result;
+                    probabilityText.textContent = data.probability;
+
+                    // Result k hisab se color change karein
+                    if (data.result.includes('FRAUDULENT')) {
+                        resultContainer.className = 'mt-8 text-center p-6 rounded-lg bg-red-100 text-red-800';
+                    } else {
+                        resultContainer.className = 'mt-8 text-center p-6 rounded-lg bg-green-100 text-green-800';
+                    }
+                    resultContainer.classList.remove('hidden');
+                    
+                } catch (error) {
+                    // Error ko display karein
+                    resultText.textContent = 'Error';
+                    probabilityText.textContent = error.message;
+                    resultContainer.className = 'mt-8 text-center p-6 rounded-lg bg-red-100 text-red-800';
+                    resultContainer.classList.remove('hidden');
+                } finally {
+                    // Hide loader
+                    btnText.classList.remove('hidden');
+                    btnLoader.classList.add('hidden');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
